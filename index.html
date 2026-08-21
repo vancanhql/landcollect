@@ -8,7 +8,7 @@
     <title>Cập nhật thửa đất</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <header class="app-header">
@@ -198,6 +198,10 @@
       <button id="installButton" class="install-button" type="button">Cài app trên điện thoại</button>
     </div>
 
+    <div id="updateDock" class="update-dock" hidden>
+      <button id="updateButton" class="update-button" type="button">Có phiên bản mới - bấm để cập nhật</button>
+    </div>
+
     <dialog id="projectDialog">
       <form id="projectForm" method="dialog">
         <h2 id="projectDialogTitle">Tạo dự án</h2>
@@ -233,6 +237,6 @@
     </dialog>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js" type="module"></script>
+    <script src="app.js?v=6" type="module"></script>
   </body>
 </html>
