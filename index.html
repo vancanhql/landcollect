@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f6f5f" />
+    <meta name="description" content="Ứng dụng cập nhật thông tin thửa đất, lưu tọa độ GPS, ảnh hiện trạng và xuất GeoJSON theo dự án." />
+    <title>Cập nhật thửa đất</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <button id="backButton" class="header-button" hidden aria-label="Quay lại">‹</button>
+      <div class="header-title">
+        <p id="headerEyebrow">Quản lý hiện trạng</p>
+        <h1 id="headerTitle">Dự án thửa đất</h1>
+      </div>
+      <button id="installButton" class="header-button text-button" hidden>Cài</button>
+    </header>
+
+    <main class="screen-shell">
+      <section id="projectsScreen" class="screen is-active" aria-label="Danh sách dự án">
+        <div class="hero-panel">
+          <div>
+            <p class="eyebrow">Bắt đầu</p>
+            <h2>Tạo dự án khảo sát</h2>
+            <p>Lưu từng dự án riêng, thu thập thửa đất theo từng bước và xuất GeoJSON khi hoàn tất.</p>
+          </div>
+          <button id="createProjectButton" class="primary-button">Tạo dự án</button>
+        </div>
+
+        <div class="section-heading">
+          <h2>Dự án đã lưu</h2>
+          <span id="projectCount" class="count-badge">0</span>
+        </div>
+        <div id="projectList" class="item-list"></div>
+      </section>
+
+      <section id="projectScreen" class="screen" aria-label="Chi tiết dự án">
+        <div class="project-summary">
+          <div>
+            <p class="eyebrow">Dự án đang mở</p>
+            <h2 id="projectNameTitle">Chưa chọn dự án</h2>
+            <p id="projectDescriptionText"></p>
+          </div>
+          <div class="summary-actions">
+            <button id="editProjectButton" class="secondary-button">Sửa dự án</button>
+            <button id="projectMapButton" class="secondary-button">Bản đồ dự án</button>
+            <button id="exportProjectButton" class="primary-button">Xuất GeoJSON</button>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <h2>Thửa đất trong dự án</h2>
+          <span id="parcelCount" class="count-badge">0</span>
+        </div>
+        <button id="createParcelButton" class="primary-button wide-button">+ Thêm thửa đất</button>
+        <div id="parcelList" class="item-list"></div>
+      </section>
+
+      <section id="wizardScreen" class="screen" aria-label="Thu thập thông tin thửa đất">
+        <div class="stepper" aria-label="Các bước thu thập">
+          <span class="step-dot is-active" data-step-dot="0">1</span>
+          <span class="step-dot" data-step-dot="1">2</span>
+          <span class="step-dot" data-step-dot="2">3</span>
+          <span class="step-dot" data-step-dot="3">4</span>
+          <span class="step-dot" data-step-dot="4">5</span>
+        </div>
+
+        <form id="parcelForm" autocomplete="off">
+          <input type="hidden" id="parcelId" />
+
+          <div class="form-step is-active" data-step="0">
+            <p class="eyebrow">Bước 1</p>
+            <h2>Thông tin thửa đất</h2>
+            <label>
+              Số tờ / Số thửa
+              <input id="parcelCode" type="text" placeholder="Ví dụ: Tờ 12 - Thửa 48" required />
+            </label>
+            <label>
+              Chủ sử dụng / Địa chỉ
+              <input id="owner" type="text" placeholder="Tên chủ sử dụng hoặc địa chỉ thửa đất" />
+            </label>
+            <div class="field-grid">
+              <label>
+                Diện tích
+                <input id="area" type="text" inputmode="decimal" placeholder="m²" />
+              </label>
+              <label>
+                Loại đất
+                <input id="landType" type="text" placeholder="ODT, CLN, LUA..." />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-step" data-step="1">
+            <p class="eyebrow">Bước 2</p>
+            <h2>Hiện trạng</h2>
+            <label>
+              Tình trạng sử dụng
+              <select id="status">
+                <option value="Chưa khảo sát">Chưa khảo sát</option>
+                <option value="Đang sử dụng ổn định">Đang sử dụng ổn định</option>
+                <option value="Có công trình">Có công trình</option>
+                <option value="Đất trống">Đất trống</option>
+                <option value="Tranh chấp / cần xác minh">Tranh chấp / cần xác minh</option>
+              </select>
+            </label>
+            <label>
+              Ghi chú hiện trạng
+              <textarea id="notes" rows="8" placeholder="Mô tả công trình, cây trồng, mốc giới, vật cản, tình trạng sử dụng..."></textarea>
+            </label>
+          </div>
+
+          <div class="form-step" data-step="2">
+            <p class="eyebrow">Bước 3</p>
+            <h2>Tọa độ GPS</h2>
+            <div class="coordinate-card">
+              <label>
+                Vĩ độ
+                <input id="lat" type="number" step="any" placeholder="Nhập vĩ độ" required />
+              </label>
+              <label>
+                Kinh độ
+                <input id="lng" type="number" step="any" placeholder="Nhập kinh độ" required />
+              </label>
+            </div>
+            <button id="gpsButton" type="button" class="primary-button wide-button">Lấy tọa độ GPS</button>
+            <button id="pickOnMapButton" type="button" class="secondary-button wide-button">Chọn vị trí trên bản đồ</button>
+          </div>
+
+          <div class="form-step" data-step="3">
+            <p class="eyebrow">Bước 4</p>
+            <h2>Ảnh hiện trạng</h2>
+            <label class="file-button wide-button">
+              Chụp hoặc chọn ảnh
+              <input id="photoInput" type="file" accept="image/*" capture="environment" multiple />
+            </label>
+            <div id="photoPreview" class="photo-preview" aria-live="polite"></div>
+          </div>
+
+          <div class="form-step" data-step="4">
+            <p class="eyebrow">Bước 5</p>
+            <h2>Kiểm tra và lưu</h2>
+            <div id="reviewBox" class="review-box"></div>
+            <button type="submit" class="primary-button wide-button">Lưu thửa đất</button>
+            <button id="deleteParcelButton" type="button" class="danger-button wide-button" hidden>Xóa thửa đất</button>
+          </div>
+        </form>
+
+        <nav class="bottom-actions" aria-label="Điều hướng biểu mẫu">
+          <button id="prevStepButton" class="secondary-button">Quay lại</button>
+          <button id="nextStepButton" class="primary-button">Tiếp tục</button>
+        </nav>
+      </section>
+
+      <section id="mapScreen" class="screen map-screen" aria-label="Bản đồ">
+        <div id="map"></div>
+        <div class="map-toolbar">
+          <button class="chip is-active" data-layer="satellite">Vệ tinh</button>
+          <button class="chip" data-layer="topo">Topo</button>
+          <button class="chip" data-layer="street">Đường phố</button>
+        </div>
+        <div class="map-footer">
+          <button id="saveMapPointButton" class="primary-button" hidden>Dùng vị trí này</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="projectDialog">
+      <form id="projectForm" method="dialog">
+        <h2 id="projectDialogTitle">Tạo dự án</h2>
+        <input type="hidden" id="projectId" />
+        <label>
+          Tên dự án
+          <input id="projectName" type="text" placeholder="Ví dụ: Khảo sát xã Bình Minh" required />
+        </label>
+        <label>
+          Khu vực / ghi chú
+          <textarea id="projectDescription" rows="4" placeholder="Mô tả khu vực, đợt khảo sát, người phụ trách..."></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button class="secondary-button" value="cancel" type="button" id="cancelProjectButton">Hủy</button>
+          <button class="primary-button" value="default">Lưu</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="messageDialog">
+      <form method="dialog">
+        <p id="messageText"></p>
+        <button class="primary-button wide-button">Đóng</button>
+      </form>
+    </dialog>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

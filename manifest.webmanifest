@@ -1,0 +1,17 @@
+{
+  "name": "Cập nhật thửa đất",
+  "short_name": "Thửa đất",
+  "description": "Cập nhật thông tin thửa đất, GPS, ảnh hiện trạng và xuất GeoJSON.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#1f6f5f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
