@@ -12,6 +12,8 @@ const headerTitle = document.querySelector("#headerTitle");
 const headerEyebrow = document.querySelector("#headerEyebrow");
 const backButton = document.querySelector("#backButton");
 const installButton = document.querySelector("#installButton");
+const installDialog = document.querySelector("#installDialog");
+const installText = document.querySelector("#installText");
 
 const projectList = document.querySelector("#projectList");
 const projectCount = document.querySelector("#projectCount");
@@ -28,6 +30,8 @@ const projectFields = {
 
 const projectNameTitle = document.querySelector("#projectNameTitle");
 const projectDescriptionText = document.querySelector("#projectDescriptionText");
+const parcelCountLarge = document.querySelector("#parcelCountLarge");
+const photoCountLarge = document.querySelector("#photoCountLarge");
 const editProjectButton = document.querySelector("#editProjectButton");
 const projectMapButton = document.querySelector("#projectMapButton");
 const exportProjectButton = document.querySelector("#exportProjectButton");
@@ -53,6 +57,7 @@ const photoInput = document.querySelector("#photoInput");
 const photoPreview = document.querySelector("#photoPreview");
 const reviewBox = document.querySelector("#reviewBox");
 const deleteParcelButton = document.querySelector("#deleteParcelButton");
+const saveParcelButton = document.querySelector("#saveParcelButton");
 const prevStepButton = document.querySelector("#prevStepButton");
 const nextStepButton = document.querySelector("#nextStepButton");
 
@@ -154,7 +159,13 @@ function migrateOldRecords() {
 }
 
 function saveProjects() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    return true;
+  } catch {
+    showMessage("Không lưu được dữ liệu. Bộ nhớ trình duyệt có thể đã đầy, thường do ảnh hiện trạng quá nhiều hoặc quá lớn.");
+    return false;
+  }
 }
 
 function showScreen(name, options = {}) {
@@ -262,6 +273,8 @@ function renderProject() {
   projectNameTitle.textContent = project.name;
   projectDescriptionText.textContent = project.description || "Chưa có ghi chú khu vực.";
   parcelCount.textContent = project.parcels.length;
+  parcelCountLarge.textContent = project.parcels.length;
+  photoCountLarge.textContent = project.parcels.reduce((total, parcel) => total + (parcel.photos?.length || 0), 0);
   parcelList.innerHTML = "";
 
   if (!project.parcels.length) {
@@ -332,7 +345,7 @@ function deleteProject(id) {
 
   projects = projects.filter((item) => item.id !== id);
   if (currentProjectId === id) currentProjectId = "";
-  saveProjects();
+  if (!saveProjects()) return;
   renderProjects();
   showScreen("projects");
 }
@@ -394,6 +407,13 @@ function parcelFromForm() {
   const lat = toNumber(parcelFields.lat.value);
   const lng = toNumber(parcelFields.lng.value);
 
+  if (!parcelFields.parcelCode.value.trim()) {
+    showMessage("Anh cần nhập số tờ / số thửa trước khi lưu.");
+    currentStep = 0;
+    renderStep();
+    return null;
+  }
+
   if (lat === null || lng === null) {
     showMessage("Anh cần có vĩ độ và kinh độ trước khi lưu thửa đất.");
     currentStep = 2;
@@ -432,7 +452,7 @@ function saveParcel() {
 
   project.updatedAt = nowIso();
   currentParcelId = parcel.id;
-  saveProjects();
+  if (!saveProjects()) return;
   renderProject();
   showMessage("Đã lưu thửa đất.");
   showScreen("project");
@@ -446,7 +466,7 @@ function deleteParcel(parcelId = currentParcelId) {
 
   project.parcels = project.parcels.filter((item) => item.id !== parcelId);
   project.updatedAt = nowIso();
-  saveProjects();
+  if (!saveProjects()) return;
   currentParcelId = "";
   renderProject();
   showScreen("project");
@@ -500,7 +520,7 @@ async function compressImage(file) {
     image.src = dataUrl;
   });
 
-  const maxSize = 1280;
+  const maxSize = 960;
   const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(image.width * scale);
@@ -714,7 +734,7 @@ projectForm.addEventListener("submit", (event) => {
   else projects.push(project);
 
   currentProjectId = id;
-  saveProjects();
+  if (!saveProjects()) return;
   projectDialog.close();
   renderProjects();
   renderProject();
@@ -730,6 +750,8 @@ parcelForm.addEventListener("submit", (event) => {
   event.preventDefault();
   saveParcel();
 });
+
+saveParcelButton.addEventListener("click", saveParcel);
 
 prevStepButton.addEventListener("click", () => {
   currentStep = Math.max(0, currentStep - 1);
@@ -807,15 +829,27 @@ backButton.addEventListener("click", goBack);
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
-  installButton.hidden = false;
 });
 
 installButton.addEventListener("click", async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
+  if (isStandaloneApp()) {
+    showMessage("Ứng dụng đã được cài hoặc đang mở ở chế độ app.");
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+
+  showInstallHelp();
+});
+
+window.addEventListener("appinstalled", () => {
+  installButton.textContent = "Đã cài";
   deferredInstallPrompt = null;
-  installButton.hidden = true;
 });
 
 if ("serviceWorker" in navigator) {
@@ -824,6 +858,31 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function showInstallHelp() {
+  const ua = navigator.userAgent.toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(ua);
+  const isAndroid = /android/.test(ua);
+
+  if (isIos) {
+    installText.textContent = "Trên iPhone/iPad: bấm nút Chia sẻ trong Safari, chọn “Thêm vào Màn hình chính”, rồi bấm “Thêm”.";
+  } else if (isAndroid) {
+    installText.textContent = "Trên Android: mở menu trình duyệt, chọn “Cài đặt ứng dụng” hoặc “Thêm vào màn hình chính”. Nếu dùng Chrome, đôi khi nút cài sẽ hiện sau khi tải lại trang.";
+  } else {
+    installText.textContent = "Trên máy tính hoặc điện thoại: mở menu trình duyệt và chọn “Cài đặt ứng dụng” hoặc “Thêm vào màn hình chính” nếu trình duyệt hỗ trợ.";
+  }
+
+  if (typeof installDialog.showModal === "function") {
+    installDialog.showModal();
+  } else {
+    showMessage(installText.textContent);
+  }
+}
+
 loadProjects();
+if (isStandaloneApp()) installButton.textContent = "Đã cài";
 renderProjects();
 showScreen("projects");

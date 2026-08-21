@@ -13,11 +13,16 @@
   <body>
     <header class="app-header">
       <button id="backButton" class="header-button" hidden aria-label="Quay lại">‹</button>
-      <div class="header-title">
-        <p id="headerEyebrow">Quản lý hiện trạng</p>
-        <h1 id="headerTitle">Dự án thửa đất</h1>
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span>
+        </div>
+        <div class="header-title">
+          <p id="headerEyebrow">Quản lý hiện trạng</p>
+          <h1 id="headerTitle">Dự án thửa đất</h1>
+        </div>
       </div>
-      <button id="installButton" class="header-button text-button" hidden>Cài</button>
+      <button id="installButton" class="install-button" type="button">Cài app</button>
     </header>
 
     <main class="screen-shell">
@@ -27,6 +32,18 @@
             <p class="eyebrow">Bắt đầu</p>
             <h2>Tạo dự án khảo sát</h2>
             <p>Lưu từng dự án riêng, thu thập thửa đất theo từng bước và xuất GeoJSON khi hoàn tất.</p>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="map-card-mini">
+              <span></span>
+              <span></span>
+              <span></span>
+              <i></i>
+            </div>
+            <div class="mini-stat">
+              <strong>GPS</strong>
+              <span>Ảnh + GeoJSON</span>
+            </div>
           </div>
           <button id="createProjectButton" class="primary-button">Tạo dự án</button>
         </div>
@@ -44,6 +61,16 @@
             <p class="eyebrow">Dự án đang mở</p>
             <h2 id="projectNameTitle">Chưa chọn dự án</h2>
             <p id="projectDescriptionText"></p>
+          </div>
+          <div class="project-metrics">
+            <div>
+              <strong id="parcelCountLarge">0</strong>
+              <span>Thửa đất</span>
+            </div>
+            <div>
+              <strong id="photoCountLarge">0</strong>
+              <span>Ảnh</span>
+            </div>
           </div>
           <div class="summary-actions">
             <button id="editProjectButton" class="secondary-button">Sửa dự án</button>
@@ -77,7 +104,7 @@
             <h2>Thông tin thửa đất</h2>
             <label>
               Số tờ / Số thửa
-              <input id="parcelCode" type="text" placeholder="Ví dụ: Tờ 12 - Thửa 48" required />
+              <input id="parcelCode" type="text" placeholder="Ví dụ: Tờ 12 - Thửa 48" />
             </label>
             <label>
               Chủ sử dụng / Địa chỉ
@@ -120,11 +147,11 @@
             <div class="coordinate-card">
               <label>
                 Vĩ độ
-                <input id="lat" type="number" step="any" placeholder="Nhập vĩ độ" required />
+                <input id="lat" type="number" step="any" placeholder="Nhập vĩ độ" />
               </label>
               <label>
                 Kinh độ
-                <input id="lng" type="number" step="any" placeholder="Nhập kinh độ" required />
+                <input id="lng" type="number" step="any" placeholder="Nhập kinh độ" />
               </label>
             </div>
             <button id="gpsButton" type="button" class="primary-button wide-button">Lấy tọa độ GPS</button>
@@ -145,7 +172,7 @@
             <p class="eyebrow">Bước 5</p>
             <h2>Kiểm tra và lưu</h2>
             <div id="reviewBox" class="review-box"></div>
-            <button type="submit" class="primary-button wide-button">Lưu thửa đất</button>
+            <button id="saveParcelButton" type="button" class="primary-button wide-button">Lưu thửa đất</button>
             <button id="deleteParcelButton" type="button" class="danger-button wide-button" hidden>Xóa thửa đất</button>
           </div>
         </form>
@@ -192,6 +219,14 @@
       <form method="dialog">
         <p id="messageText"></p>
         <button class="primary-button wide-button">Đóng</button>
+      </form>
+    </dialog>
+
+    <dialog id="installDialog">
+      <form method="dialog">
+        <h2>Cài ứng dụng</h2>
+        <p id="installText">Mở trang này trên điện thoại bằng trình duyệt, sau đó chọn chia sẻ hoặc menu trình duyệt và bấm “Thêm vào màn hình chính”.</p>
+        <button class="primary-button wide-button">Đã hiểu</button>
       </form>
     </dialog>
 
