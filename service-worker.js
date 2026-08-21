@@ -1,9 +1,12 @@
-const CACHE_NAME = "parcel-field-app-v5";
+const CACHE_NAME = "parcel-field-app-v6";
+const APP_VERSION = "6";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./styles.css?v=6",
   "./app.js",
+  "./app.js?v=6",
   "./manifest.webmanifest",
   "./icon.svg",
 ];
@@ -16,8 +19,19 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+
+  if (event.data?.type === "GET_VERSION") {
+    event.source?.postMessage({ type: "APP_VERSION", version: APP_VERSION });
+  }
 });
 
 self.addEventListener("fetch", (event) => {

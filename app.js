@@ -14,6 +14,8 @@ const installButton = document.querySelector("#installButton");
 const installDock = document.querySelector("#installDock");
 const installDialog = document.querySelector("#installDialog");
 const installText = document.querySelector("#installText");
+const updateDock = document.querySelector("#updateDock");
+const updateButton = document.querySelector("#updateButton");
 
 const projectList = document.querySelector("#projectList");
 const projectCount = document.querySelector("#projectCount");
@@ -80,6 +82,7 @@ let baseLayers;
 let currentBaseLayer;
 let markerLayer;
 let pickMarker;
+let waitingServiceWorker = null;
 
 function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -845,7 +848,7 @@ window.addEventListener("appinstalled", () => {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    navigator.serviceWorker.register("service-worker.js").then(setupServiceWorkerUpdates).catch(() => {});
   });
 }
 
@@ -876,6 +879,50 @@ function showInstallHelp() {
     showMessage(installText.textContent);
   }
 }
+
+function setupServiceWorkerUpdates(registration) {
+  registration.update().catch(() => {});
+
+  if (registration.waiting) {
+    showUpdatePrompt(registration.waiting);
+  }
+
+  registration.addEventListener("updatefound", () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+
+    newWorker.addEventListener("statechange", () => {
+      if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+        showUpdatePrompt(newWorker);
+      }
+    });
+  });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      registration.update().catch(() => {});
+    }
+  });
+}
+
+function showUpdatePrompt(worker) {
+  waitingServiceWorker = worker;
+  installDock.hidden = true;
+  updateDock.hidden = false;
+}
+
+updateButton.addEventListener("click", () => {
+  if (!waitingServiceWorker) {
+    window.location.reload();
+    return;
+  }
+
+  waitingServiceWorker.postMessage({ type: "SKIP_WAITING" });
+});
 
 loadProjects();
 if (isStandaloneApp()) hideInstallButton();
