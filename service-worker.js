@@ -1,4 +1,4 @@
-const CACHE_NAME = "parcel-field-app-v4";
+const CACHE_NAME = "parcel-field-app-v5";
 const ASSETS = [
   "./",
   "./index.html",

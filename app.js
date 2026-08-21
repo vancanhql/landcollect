@@ -9,9 +9,9 @@ const screens = {
 };
 
 const headerTitle = document.querySelector("#headerTitle");
-const headerEyebrow = document.querySelector("#headerEyebrow");
 const backButton = document.querySelector("#backButton");
 const installButton = document.querySelector("#installButton");
+const installDock = document.querySelector("#installDock");
 const installDialog = document.querySelector("#installDialog");
 const installText = document.querySelector("#installText");
 
@@ -188,17 +188,7 @@ function showScreen(name, options = {}) {
 }
 
 function updateHeader() {
-  const project = currentProject();
-  const titles = {
-    projects: ["Quản lý hiện trạng", "Dự án thửa đất"],
-    project: ["Dự án", project?.name || "Chi tiết dự án"],
-    wizard: [currentParcelId ? "Sửa thửa đất" : "Thu thập mới", project?.name || "Thửa đất"],
-    map: [mapMode === "pickPoint" ? "Chọn vị trí" : "Bản đồ", project?.name || "Bản đồ dự án"],
-  };
-
-  const [eyebrow, title] = titles[activeScreen];
-  headerEyebrow.textContent = eyebrow;
-  headerTitle.textContent = title;
+  headerTitle.textContent = "Ứng dụng thu thập thông tin thửa đất";
   backButton.hidden = activeScreen === "projects";
 }
 
@@ -833,14 +823,15 @@ window.addEventListener("beforeinstallprompt", (event) => {
 
 installButton.addEventListener("click", async () => {
   if (isStandaloneApp()) {
-    showMessage("Ứng dụng đã được cài hoặc đang mở ở chế độ app.");
+    hideInstallButton();
     return;
   }
 
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
+    const choice = await deferredInstallPrompt.userChoice;
     deferredInstallPrompt = null;
+    if (choice.outcome === "accepted") hideInstallButton();
     return;
   }
 
@@ -848,7 +839,7 @@ installButton.addEventListener("click", async () => {
 });
 
 window.addEventListener("appinstalled", () => {
-  installButton.textContent = "Đã cài";
+  hideInstallButton();
   deferredInstallPrompt = null;
 });
 
@@ -860,6 +851,10 @@ if ("serviceWorker" in navigator) {
 
 function isStandaloneApp() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function hideInstallButton() {
+  installDock.hidden = true;
 }
 
 function showInstallHelp() {
@@ -883,6 +878,6 @@ function showInstallHelp() {
 }
 
 loadProjects();
-if (isStandaloneApp()) installButton.textContent = "Đã cài";
+if (isStandaloneApp()) hideInstallButton();
 renderProjects();
 showScreen("projects");
