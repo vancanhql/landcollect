@@ -37,6 +37,7 @@ const photoCountLarge = document.querySelector("#photoCountLarge");
 const editProjectButton = document.querySelector("#editProjectButton");
 const projectMapButton = document.querySelector("#projectMapButton");
 const exportProjectButton = document.querySelector("#exportProjectButton");
+const exportPackageButton = document.querySelector("#exportPackageButton");
 const createParcelButton = document.querySelector("#createParcelButton");
 const parcelList = document.querySelector("#parcelList");
 const parcelCount = document.querySelector("#parcelCount");
@@ -115,6 +116,16 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function slugify(value, fallback = "file") {
+  const slug = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || fallback;
 }
 
 function toNumber(value) {
@@ -682,6 +693,53 @@ function buildGeoJson(project, includePhotos = true) {
   };
 }
 
+function buildGeoJsonWithImagePaths(project, imageFiles) {
+  const imageMap = new Map();
+  imageFiles.forEach((file) => {
+    if (!imageMap.has(file.parcelId)) imageMap.set(file.parcelId, []);
+    imageMap.get(file.parcelId).push({
+      ten_file: file.fileName,
+      duong_dan: file.path,
+      ngay_chup: file.capturedAt,
+    });
+  });
+
+  return {
+    type: "FeatureCollection",
+    name: project.name,
+    generatedAt: nowIso(),
+    properties: {
+      ten_du_an: project.name,
+      mo_ta_du_an: project.description,
+      thu_muc_anh: "images",
+      ngay_tao: project.createdAt,
+      ngay_cap_nhat: project.updatedAt,
+    },
+    features: project.parcels.map((parcel) => ({
+      type: "Feature",
+      id: parcel.id,
+      geometry: {
+        type: "Point",
+        coordinates: [parcel.lng, parcel.lat],
+      },
+      properties: {
+        du_an: project.name,
+        so_to_so_thua: parcel.parcelCode,
+        chu_su_dung_dia_chi: parcel.owner,
+        dien_tich: parcel.area,
+        loai_dat: parcel.landType,
+        hien_trang: parcel.status,
+        ghi_chu: parcel.notes,
+        so_anh: parcel.photos?.length || 0,
+        anh_hien_trang: imageMap.get(parcel.id) || [],
+        duong_dan_anh: (imageMap.get(parcel.id) || []).map((image) => image.duong_dan),
+        ngay_tao: parcel.createdAt,
+        ngay_cap_nhat: parcel.updatedAt,
+      },
+    })),
+  };
+}
+
 function downloadGeoJson() {
   const project = currentProject();
   if (!project || !project.parcels.length) {
@@ -697,6 +755,174 @@ function downloadGeoJson() {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = `${project.name.toLowerCase().replaceAll(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.geojson`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function collectImageFiles(project) {
+  const usedNames = new Set();
+  const imageFiles = [];
+
+  project.parcels.forEach((parcel, parcelIndex) => {
+    const parcelSlug = slugify(parcel.parcelCode, `thua-${parcelIndex + 1}`);
+    (parcel.photos || []).forEach((photo, photoIndex) => {
+      const extension = getImageExtension(photo);
+      const baseName = `${parcelSlug}-${String(photoIndex + 1).padStart(2, "0")}`;
+      let fileName = `${baseName}.${extension}`;
+      let counter = 2;
+
+      while (usedNames.has(fileName)) {
+        fileName = `${baseName}-${counter}.${extension}`;
+        counter += 1;
+      }
+
+      usedNames.add(fileName);
+      imageFiles.push({
+        parcelId: parcel.id,
+        fileName,
+        path: `images/${fileName}`,
+        capturedAt: photo.capturedAt || "",
+        bytes: dataUrlToUint8Array(photo.dataUrl),
+      });
+    });
+  });
+
+  return imageFiles;
+}
+
+function getImageExtension(photo) {
+  const type = photo?.type || "";
+  if (type.includes("png")) return "png";
+  if (type.includes("webp")) return "webp";
+  return "jpg";
+}
+
+function dataUrlToUint8Array(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function stringToUint8Array(value) {
+  return new TextEncoder().encode(value);
+}
+
+function dateToDosTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  const dosTime = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const dosDate = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { dosTime, dosDate };
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function writeUint16(array, offset, value) {
+  array[offset] = value & 0xff;
+  array[offset + 1] = (value >>> 8) & 0xff;
+}
+
+function writeUint32(array, offset, value) {
+  array[offset] = value & 0xff;
+  array[offset + 1] = (value >>> 8) & 0xff;
+  array[offset + 2] = (value >>> 16) & 0xff;
+  array[offset + 3] = (value >>> 24) & 0xff;
+}
+
+function createZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const { dosTime, dosDate } = dateToDosTime();
+
+  files.forEach((file) => {
+    const nameBytes = stringToUint8Array(file.name);
+    const data = file.data;
+    const checksum = crc32(data);
+
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    writeUint32(localHeader, 0, 0x04034b50);
+    writeUint16(localHeader, 4, 20);
+    writeUint16(localHeader, 6, 0x0800);
+    writeUint16(localHeader, 8, 0);
+    writeUint16(localHeader, 10, dosTime);
+    writeUint16(localHeader, 12, dosDate);
+    writeUint32(localHeader, 14, checksum);
+    writeUint32(localHeader, 18, data.length);
+    writeUint32(localHeader, 22, data.length);
+    writeUint16(localHeader, 26, nameBytes.length);
+    localHeader.set(nameBytes, 30);
+
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    writeUint32(centralHeader, 0, 0x02014b50);
+    writeUint16(centralHeader, 4, 20);
+    writeUint16(centralHeader, 6, 20);
+    writeUint16(centralHeader, 8, 0x0800);
+    writeUint16(centralHeader, 10, 0);
+    writeUint16(centralHeader, 12, dosTime);
+    writeUint16(centralHeader, 14, dosDate);
+    writeUint32(centralHeader, 16, checksum);
+    writeUint32(centralHeader, 20, data.length);
+    writeUint32(centralHeader, 24, data.length);
+    writeUint16(centralHeader, 28, nameBytes.length);
+    writeUint32(centralHeader, 42, offset);
+    centralHeader.set(nameBytes, 46);
+
+    centralParts.push(centralHeader);
+    offset += localHeader.length + data.length;
+  });
+
+  const centralSize = centralParts.reduce((total, part) => total + part.length, 0);
+  const endRecord = new Uint8Array(22);
+  writeUint32(endRecord, 0, 0x06054b50);
+  writeUint16(endRecord, 8, files.length);
+  writeUint16(endRecord, 10, files.length);
+  writeUint32(endRecord, 12, centralSize);
+  writeUint32(endRecord, 16, offset);
+
+  return new Blob([...localParts, ...centralParts, endRecord], { type: "application/zip" });
+}
+
+function downloadGeoJsonPackage() {
+  const project = currentProject();
+  if (!project || !project.parcels.length) {
+    showMessage("Dự án chưa có thửa đất để xuất GeoJSON.");
+    return;
+  }
+
+  const imageFiles = collectImageFiles(project);
+  const geojson = buildGeoJsonWithImagePaths(project, imageFiles);
+  const projectSlug = slugify(project.name, "du-an");
+  const files = [
+    {
+      name: `${projectSlug}.geojson`,
+      data: stringToUint8Array(JSON.stringify(geojson, null, 2)),
+    },
+    ...imageFiles.map((image) => ({
+      name: image.path,
+      data: image.bytes,
+    })),
+  ];
+
+  const blob = createZip(files);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${projectSlug}-geojson-anh-${new Date().toISOString().slice(0, 10)}.zip`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -737,6 +963,7 @@ projectForm.addEventListener("submit", (event) => {
 editProjectButton.addEventListener("click", () => openProjectDialog(currentProject()));
 projectMapButton.addEventListener("click", () => openMap("viewProject", "project"));
 exportProjectButton.addEventListener("click", downloadGeoJson);
+exportPackageButton.addEventListener("click", downloadGeoJsonPackage);
 createParcelButton.addEventListener("click", () => openParcelWizard());
 
 parcelForm.addEventListener("submit", (event) => {
